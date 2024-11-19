@@ -108,9 +108,7 @@ contract OptionsMarketplace {
 
         option.buyer = msg.sender;
 
-        (bool optionPurchaseSuccess, ) = msg.sender.call{
-            value: option.optionPrice
-        }("");
+        (bool optionPurchaseSuccess,) = msg.sender.call{value: option.optionPrice}("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
@@ -118,9 +116,7 @@ contract OptionsMarketplace {
 
     function redeemOption() public {}
 
-    function getOptionInfo(
-        uint256 _optionId
-    ) public view returns (Option memory) {
+    function getOptionInfo(uint256 _optionId) public view returns (Option memory) {
         return options[_optionId];
     }
 }
