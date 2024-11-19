@@ -7,6 +7,11 @@ contract OptionsMarketplace {
     error OptionsMarketplace__AmountSentIsNotStrikePrice();
     error OptionsMarketplace__ExpirationTimestampHasPassed();
     error OptionsMarketplace__SubmittedAssetIsNotValid();
+    error OptionsMarketplace__OptionDoesNotExist();
+    error OptionsMarketplace__YouAreNotTheSellerOfThisOption();
+    error OptionsMarketplace__OptionHasAlreadyBeenBought();
+    error OptionsMarketplace__SentIncorrectAmountOfEth();
+    error OptionsMarketplace__OptionPurchaseFailed();
 
     // Structs
     struct Option {
@@ -17,6 +22,7 @@ contract OptionsMarketplace {
         uint256 strikePrice; // Price in ether
         uint256 expiration; // Timestamp
         bool isCall;
+        bool redeemed;
     }
 
     // Variables
@@ -28,6 +34,7 @@ contract OptionsMarketplace {
 
     // Events
     event OptionListed(uint256 optionId, Option option);
+    event OptionPriceChanged(uint256 optionId, Option option);
     event OptionBought(uint256 optionId, Option option);
     event OptionRedeemed(uint256 optionId, Option option);
 
@@ -62,12 +69,58 @@ contract OptionsMarketplace {
             optionPrice: _optionPrice,
             strikePrice: _strikePrice,
             expiration: _expiration,
-            isCall: _isCall
+            isCall: _isCall,
+            redeemed: false
         });
+
+        emit OptionListed(nextOptionId, options[nextOptionId]);
+
+        nextOptionId++;
     }
 
-    function changePrice() public {}
-    function buyOption() public {}
+    function changePrice(uint256 _optionId, uint256 newPrice) public {
+        Option storage option = options[_optionId];
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
+        if (option.seller != msg.sender) {
+            revert OptionsMarketplace__YouAreNotTheSellerOfThisOption();
+        }
+        if (option.buyer != address(0)) {
+            revert OptionsMarketplace__OptionHasAlreadyBeenBought();
+        }
+
+        option.optionPrice = newPrice;
+        emit OptionPriceChanged(_optionId, option);
+    }
+
+    function buyOption(uint256 _optionId) public payable {
+        Option storage option = options[_optionId];
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
+        if (option.buyer != address(0)) {
+            revert OptionsMarketplace__OptionHasAlreadyBeenBought();
+        }
+        if (msg.value != option.optionPrice) {
+            revert OptionsMarketplace__SentIncorrectAmountOfEth();
+        }
+
+        option.buyer = msg.sender;
+
+        (bool optionPurchaseSuccess, ) = msg.sender.call{
+            value: option.optionPrice
+        }("");
+        if (!optionPurchaseSuccess) {
+            revert OptionsMarketplace__OptionPurchaseFailed();
+        }
+    }
+
     function redeemOption() public {}
-    function getOptionStatus() public {}
+
+    function getOptionInfo(
+        uint256 _optionId
+    ) public view returns (Option memory) {
+        return options[_optionId];
+    }
 }
