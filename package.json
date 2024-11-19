@@ -1,0 +1,24 @@
+{
+  "name": "eth-options-trading-platform",
+  "version": "1.0.0",
+  "description": "## Description This project allows users to list call and put options on chain to then be bought by other users. For this demonstration the options are for Apple stocks. Apple stocks are off chain so the options don't actaully give users the literal option to buy or sell the stocks but instead allow users to redeem the value of the options in a trustless system. The Pyth oracle network is used to get the price of Apple stocks. All purchasing and redeeming of options are done using ETH. The options are similar to American style such that they can be redeemed at anytime before or at the expiration timestamp.",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coopergau/eth-options-trading-platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/coopergau/eth-options-trading-platform/issues"
+  },
+  "homepage": "https://github.com/coopergau/eth-options-trading-platform#readme"
+}

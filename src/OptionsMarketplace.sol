@@ -2,23 +2,30 @@
 
 pragma solidity ^0.8.27;
 
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+
 contract OptionsMarketplace {
     // Errors
     error OptionsMarketplace__AmountSentIsNotStrikePrice();
     error OptionsMarketplace__ExpirationTimestampHasPassed();
-    error OptionsMarketplace__SubmittedAssetIsNotValid();
     error OptionsMarketplace__OptionDoesNotExist();
     error OptionsMarketplace__YouAreNotTheSellerOfThisOption();
+    error OptionsMarketplace__YouAreNotTheBuyerOfThisOption();
     error OptionsMarketplace__OptionHasAlreadyBeenBought();
+    error OptionsMarketplace__OptionHasNotBeenBought();
     error OptionsMarketplace__SentIncorrectAmountOfEth();
     error OptionsMarketplace__OptionPurchaseFailed();
+    error OptionsMarketplace__PriceFeedGaveNegativePrice();
+    error OptionsMarketplace__OptionHasExpired();
+    error OptionsMarketplace__OptionAlreadyRedeemed();
+    error OptionsMarketplace__OptionRedeemFailed();
+    error OptionsMarketplace__LeftOverTransferFailed();
 
     // Structs
     struct Option {
         address seller;
         address buyer;
-        string asset; // Make this correspond with what the oracle uses
-        uint256 optionPrice; // Price in ether
+        uint256 premium; // Price in ether
         uint256 strikePrice; // Price in ether
         uint256 expiration; // Timestamp
         bool isCall;
@@ -27,10 +34,11 @@ contract OptionsMarketplace {
 
     // Variables
     uint256 internal nextOptionId;
+    address internal immutable priceFeedId;
+    AggregatorV3Interface internal immutable priceFeed;
 
     // Mappings
     mapping(uint256 => Option) internal options;
-    mapping(string => bool) internal isValidAsset;
 
     // Events
     event OptionListed(uint256 optionId, Option option);
@@ -39,34 +47,22 @@ contract OptionsMarketplace {
     event OptionRedeemed(uint256 optionId, Option option);
 
     // Functions
-    constructor(string[] memory validAssets) {
-        for (uint256 i = 0; i < validAssets.length; i++) {
-            isValidAsset[validAssets[i]] = true;
-        }
+    constructor(address _priceFeedId) {
+        priceFeed = AggregatorV3Interface(_priceFeedId);
     }
 
-    function listOption(
-        string calldata _asset,
-        uint256 _optionPrice,
-        uint256 _strikePrice,
-        uint256 _expiration,
-        bool _isCall
-    ) public payable {
+    function listOption(uint256 _premium, uint256 _strikePrice, uint256 _expiration, bool _isCall) public payable {
         if (msg.value / 1 ether != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
         }
         if (block.timestamp >= _expiration) {
             revert OptionsMarketplace__ExpirationTimestampHasPassed();
         }
-        if (!isValidAsset[_asset]) {
-            revert OptionsMarketplace__SubmittedAssetIsNotValid();
-        }
 
         options[nextOptionId] = Option({
             seller: msg.sender,
             buyer: address(0),
-            asset: _asset,
-            optionPrice: _optionPrice,
+            premium: _premium,
             strikePrice: _strikePrice,
             expiration: _expiration,
             isCall: _isCall,
@@ -78,7 +74,7 @@ contract OptionsMarketplace {
         nextOptionId++;
     }
 
-    function changePrice(uint256 _optionId, uint256 newPrice) public {
+    function changePrice(uint256 _optionId, uint256 newPremium) public {
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -90,7 +86,7 @@ contract OptionsMarketplace {
             revert OptionsMarketplace__OptionHasAlreadyBeenBought();
         }
 
-        option.optionPrice = newPrice;
+        option.premium = newPremium;
         emit OptionPriceChanged(_optionId, option);
     }
 
@@ -102,19 +98,81 @@ contract OptionsMarketplace {
         if (option.buyer != address(0)) {
             revert OptionsMarketplace__OptionHasAlreadyBeenBought();
         }
-        if (msg.value != option.optionPrice) {
+        if (msg.value != option.premium) {
             revert OptionsMarketplace__SentIncorrectAmountOfEth();
         }
 
         option.buyer = msg.sender;
 
-        (bool optionPurchaseSuccess,) = msg.sender.call{value: option.optionPrice}("");
+        (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
     }
 
-    function redeemOption() public {}
+    function redeemOption(uint256 _optionId) public {
+        // Checks
+        Option storage option = options[_optionId];
+        // Check that the option has been bought
+        if (option.buyer == address(0)) {
+            revert OptionsMarketplace__OptionHasNotBeenBought();
+        }
+        // Check that the function was called by the buyer
+        if (msg.sender != option.buyer) {
+            revert OptionsMarketplace__YouAreNotTheBuyerOfThisOption();
+        }
+        // Check that the expiration time has not passed
+        if (block.timestamp > option.expiration) {
+            revert OptionsMarketplace__OptionHasExpired();
+        }
+        // Check that the option has not already been redeemed
+        if (option.redeemed == true) {
+            revert OptionsMarketplace__OptionAlreadyRedeemed();
+        }
+
+        // Affects
+        option.redeemed = true;
+
+        // Calculate current option value and left over value
+        uint256 currentPrice = getAssetPrice();
+        uint256 optionValue;
+        if (option.isCall) {
+            if (currentPrice <= option.strikePrice) {
+                optionValue = 0;
+            } else {
+                optionValue = currentPrice - option.strikePrice;
+            }
+        } else {
+            if (currentPrice >= option.strikePrice) {
+                optionValue = 0;
+            } else {
+                optionValue = option.strikePrice - currentPrice;
+            }
+        }
+        uint256 leftOverValue = option.strikePrice - optionValue;
+
+        // Interactions
+        // Send option value to the buyer
+        (bool optionRedeemSuccess,) = msg.sender.call{value: optionValue}("");
+        if (!optionRedeemSuccess) {
+            revert OptionsMarketplace__OptionRedeemFailed();
+        }
+        // Send left over value back to the seller
+        if (leftOverValue > 0) {
+            (bool leftOverSuccess,) = option.seller.call{value: leftOverValue}("");
+            if (!leftOverSuccess) {
+                revert OptionsMarketplace__LeftOverTransferFailed();
+            }
+        }
+    }
+
+    function getAssetPrice() internal view returns (uint256) {
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        if (price < 0) {
+            revert OptionsMarketplace__PriceFeedGaveNegativePrice();
+        }
+        return uint256(price);
+    }
 
     function getOptionInfo(uint256 _optionId) public view returns (Option memory) {
         return options[_optionId];
