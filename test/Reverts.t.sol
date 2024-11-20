@@ -30,17 +30,8 @@ contract Reverts is Test {
     // listOption reverts
     function testListOptionRevertsIfAmountSentIsNotStrikePrice() public {
         vm.prank(seller);
-        vm.expectRevert(
-            OptionsMarketplace
-                .OptionsMarketplace__AmountSentIsNotStrikePrice
-                .selector
-        );
-        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(
-            PREMIUM,
-            STRIKE_PRICE,
-            EXPIRATION,
-            IS_CALL
-        );
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__AmountSentIsNotStrikePrice.selector);
+        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
     }
 
     function testListOptionRevertsIfExpirationTimestampHasPassed() public {
@@ -48,38 +39,24 @@ contract Reverts is Test {
         vm.warp(EXPIRATION + 1);
 
         vm.prank(seller);
-        vm.expectRevert(
-            OptionsMarketplace
-                .OptionsMarketplace__ExpirationTimestampHasPassed
-                .selector
-        );
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            EXPIRATION,
-            IS_CALL
-        );
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__ExpirationTimestampHasPassed.selector);
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
     }
 
     // Tests with the other functions often use this function to work with an already listed option.
     function helperListOption() internal returns (uint256) {
         vm.prank(seller);
-        uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            EXPIRATION,
-            IS_CALL
-        );
+        uint256 optionId =
+            optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
         return optionId;
     }
     // changePremium reverts
+
     function testChangePremiumRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 
         vm.prank(seller);
-        vm.expectRevert(
-            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
-        );
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
         optionsMarketplace.changePremium(invalidOptionId, PREMIUM + 0.1 ether);
     }
     // buyOption reverts
