@@ -25,8 +25,8 @@ contract OptionsMarketplace {
     struct Option {
         address seller;
         address buyer;
-        uint256 premium; // Price in wei
-        uint256 strikePrice; // Price in wei
+        uint256 premium; // Price in ETH
+        uint256 strikePrice; // Price in ETH
         uint256 expiration; // Timestamp
         bool isCall;
         bool redeemed;
@@ -55,15 +55,18 @@ contract OptionsMarketplace {
         uint256 _strikePrice,
         uint256 _expiration,
         bool _isCall
-    ) public payable {
-        if (msg.value / 1 ether != _strikePrice) {
+    ) public payable returns (uint256) {
+        if (msg.value != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
         }
         if (block.timestamp >= _expiration) {
             revert OptionsMarketplace__ExpirationTimestampHasPassed();
         }
 
-        options[nextOptionId] = Option({
+        uint256 optionId = nextOptionId;
+        nextOptionId++;
+
+        Option memory newOption = Option({
             seller: msg.sender,
             buyer: address(0),
             premium: _premium,
@@ -73,12 +76,13 @@ contract OptionsMarketplace {
             redeemed: false
         });
 
-        emit OptionListed(nextOptionId, options[nextOptionId]);
+        options[optionId] = newOption;
+        emit OptionListed(optionId, newOption);
 
-        nextOptionId++;
+        return optionId;
     }
 
-    function changePrice(uint256 _optionId, uint256 newPremium) public {
+    function changePremium(uint256 _optionId, uint256 newPremium) public {
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -185,6 +189,10 @@ contract OptionsMarketplace {
     function getOptionInfo(
         uint256 _optionId
     ) public view returns (Option memory) {
+        Option memory option = options[_optionId];
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
         return options[_optionId];
     }
 }
