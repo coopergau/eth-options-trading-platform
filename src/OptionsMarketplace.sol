@@ -35,7 +35,7 @@ contract OptionsMarketplace {
 
     // Variables
     uint256 internal nextOptionId = 0;
-    AggregatorV3Interface internal immutable priceFeed;
+    AggregatorV3Interface internal immutable priceFeedInterface;
 
     // Mappings
     mapping(uint256 => Option) internal options;
@@ -48,14 +48,15 @@ contract OptionsMarketplace {
 
     // Functions
     constructor(address _priceFeedId) {
-        priceFeed = AggregatorV3Interface(_priceFeedId);
+        priceFeedInterface = AggregatorV3Interface(_priceFeedId);
     }
 
-    function listOption(uint256 _premium, uint256 _strikePrice, uint256 _expiration, bool _isCall)
-        public
-        payable
-        returns (uint256)
-    {
+    function listOption(
+        uint256 _premium,
+        uint256 _strikePrice,
+        uint256 _expiration,
+        bool _isCall
+    ) public payable returns (uint256) {
         if (msg.value != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
         }
@@ -112,7 +113,9 @@ contract OptionsMarketplace {
 
         option.buyer = msg.sender;
 
-        (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
+        (bool optionPurchaseSuccess, ) = option.seller.call{
+            value: option.premium
+        }("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
@@ -165,32 +168,40 @@ contract OptionsMarketplace {
 
         // Interactions
         // Send option value to the buyer
-        (bool optionRedeemSuccess,) = msg.sender.call{value: optionValue}("");
+        (bool optionRedeemSuccess, ) = msg.sender.call{value: optionValue}("");
         if (!optionRedeemSuccess) {
             revert OptionsMarketplace__OptionRedeemFailed();
         }
         // Send left over value back to the seller
         if (leftOverValue > 0) {
-            (bool leftOverSuccess,) = option.seller.call{value: leftOverValue}("");
+            (bool leftOverSuccess, ) = option.seller.call{value: leftOverValue}(
+                ""
+            );
             if (!leftOverSuccess) {
                 revert OptionsMarketplace__LeftOverTransferFailed();
             }
         }
     }
 
-    function getAssetPrice() internal view returns (uint256) {
-        (, int256 price,,,) = priceFeed.latestRoundData();
+    function getAssetPrice() public view returns (uint256) {
+        (, int256 price, , , ) = priceFeedInterface.latestRoundData();
         if (price < 0) {
             revert OptionsMarketplace__PriceFeedGaveNegativePrice();
         }
         return uint256(price);
     }
 
-    function getOptionInfo(uint256 _optionId) public view returns (Option memory) {
+    function getOptionInfo(
+        uint256 _optionId
+    ) public view returns (Option memory) {
         Option memory option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
         }
         return options[_optionId];
+    }
+
+    function getPriceFeedAddress() public view returns (address) {
+        return address(priceFeedInterface);
     }
 }

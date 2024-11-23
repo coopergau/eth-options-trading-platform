@@ -3,11 +3,13 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "lib/forge-std/src/Test.sol";
+import {StdCheats} from "lib/forge-std/src/StdCheats.sol";
 import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
+import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 // Contract tests reverts of if statements in the beginning of functions
-contract Reverts is Test {
+contract Reverts is StdCheats, Test {
     OptionsMarketplace public optionsMarketplace;
     address public seller = address(1);
     address public buyer = address(2);
@@ -20,7 +22,7 @@ contract Reverts is Test {
     uint256 public constant STRIKE_PRICE = 25 ether;
     bool public constant IS_CALL = true;
 
-    uint256 public constant ANVIL_TESTNET_CHAIN_ID = 31337;
+    uint256 public constant ANVIL_CHAIN_ID = 31337;
 
     function setUp() external {
         DeployOptionsMarketplace deployer = new DeployOptionsMarketplace();
@@ -29,7 +31,7 @@ contract Reverts is Test {
         vm.deal(buyer, STARTING_BALANCE);
 
         // Set the expiration variable to one hour into the future
-        if (block.chainid == ANVIL_TESTNET_CHAIN_ID) {
+        if (block.chainid == ANVIL_CHAIN_ID) {
             expiration = SECONDS_PER_HOUR;
         } else {
             expiration = block.timestamp + SECONDS_PER_HOUR;
@@ -39,8 +41,17 @@ contract Reverts is Test {
     // listOption reverts
     function testListOptionRevertsIfAmountSentIsNotStrikePrice() public {
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__AmountSentIsNotStrikePrice.selector);
-        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__AmountSentIsNotStrikePrice
+                .selector
+        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(
+            PREMIUM,
+            STRIKE_PRICE,
+            expiration,
+            IS_CALL
+        );
     }
 
     function testListOptionRevertsIfExpirationTimestampHasPassed() public {
@@ -48,15 +59,28 @@ contract Reverts is Test {
         vm.warp(expiration + 1);
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__ExpirationTimestampHasPassed.selector);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__ExpirationTimestampHasPassed
+                .selector
+        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(
+            PREMIUM,
+            STRIKE_PRICE,
+            expiration,
+            IS_CALL
+        );
     }
 
     // Tests with the other functions often use options that have been listed and/or bought.
     function helperListOption() internal returns (uint256) {
         vm.prank(seller);
-        uint256 optionId =
-            optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
+        uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
+            PREMIUM,
+            STRIKE_PRICE,
+            expiration,
+            IS_CALL
+        );
         return optionId;
     }
 
@@ -70,7 +94,9 @@ contract Reverts is Test {
         uint256 invalidOptionId = 0;
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
         optionsMarketplace.changePremium(invalidOptionId, PREMIUM + 0.1 ether);
     }
 
@@ -78,7 +104,11 @@ contract Reverts is Test {
         uint256 optionId = helperListOption();
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__YouAreNotTheSellerOfThisOption.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__YouAreNotTheSellerOfThisOption
+                .selector
+        );
         optionsMarketplace.changePremium(optionId, PREMIUM + 0.1 ether);
     }
 
@@ -87,7 +117,11 @@ contract Reverts is Test {
         helperBuyOption(optionId);
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasAlreadyBeenBought.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasAlreadyBeenBought
+                .selector
+        );
         optionsMarketplace.changePremium(optionId, PREMIUM + 0.1 ether);
     }
 
@@ -96,7 +130,9 @@ contract Reverts is Test {
         uint256 invalidOptionId = 0;
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
         optionsMarketplace.buyOption{value: PREMIUM}(invalidOptionId);
     }
 
@@ -105,7 +141,11 @@ contract Reverts is Test {
         helperBuyOption(optionId);
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasAlreadyBeenBought.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasAlreadyBeenBought
+                .selector
+        );
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
     }
 
@@ -113,7 +153,11 @@ contract Reverts is Test {
         uint256 optionId = helperListOption();
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__SentIncorrectAmountOfEth.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__SentIncorrectAmountOfEth
+                .selector
+        );
         optionsMarketplace.buyOption{value: PREMIUM + 0.1 ether}(optionId);
     }
 
@@ -122,7 +166,9 @@ contract Reverts is Test {
         uint256 invalidOptionId = 0;
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
         optionsMarketplace.redeemOption(invalidOptionId);
     }
 
@@ -130,7 +176,11 @@ contract Reverts is Test {
         uint256 optionId = helperListOption();
 
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasNotBeenBought.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasNotBeenBought
+                .selector
+        );
         optionsMarketplace.redeemOption(optionId);
     }
 
@@ -139,7 +189,11 @@ contract Reverts is Test {
         helperBuyOption(optionId);
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__YouAreNotTheBuyerOfThisOption.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__YouAreNotTheBuyerOfThisOption
+                .selector
+        );
         optionsMarketplace.redeemOption(optionId);
     }
 
@@ -149,7 +203,9 @@ contract Reverts is Test {
 
         vm.warp(expiration + 1);
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasExpired.selector);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionHasExpired.selector
+        );
         optionsMarketplace.redeemOption(optionId);
     }
 
@@ -163,10 +219,44 @@ contract Reverts is Test {
 
         // This redeem should fail
         vm.prank(buyer);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionAlreadyRedeemed.selector);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionAlreadyRedeemed
+                .selector
+        );
         optionsMarketplace.redeemOption(optionId);
     }
 
     // getAssetPrice reverts
+    function testGetAssetPriceRevertsIfPriceIsNegative() public {
+        // This test only runs on anvil beause it requires a MockV3Aggregator
+        if (block.chainid != ANVIL_CHAIN_ID) {
+            return;
+        }
+
+        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(
+            optionsMarketplace.getPriceFeedAddress()
+        );
+        int256 mockNegativePrice = -30e18;
+        mockV3Aggregator.updateAnswer(mockNegativePrice);
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__PriceFeedGaveNegativePrice
+                .selector
+        );
+        optionsMarketplace.getAssetPrice();
+    }
+
     // getOptionInfo reverts
+    function testGetOptionInfoRevertsIfOptionDoesNotExist() public {
+        uint256 invalidOptionId = 0;
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
+        optionsMarketplace.getOptionInfo(invalidOptionId);
+    }
 }

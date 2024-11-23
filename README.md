@@ -13,3 +13,4 @@ When users list a call option there is no way for them to send enough funds to e
 - add all events
 - make sure order of stuff is checks effects (Including events I think) and interactions
 - add non reentrants
+- Contract has nothing built in if chainlink goes down or returns negative prices, it just reverts so redeeming options would not be possible
