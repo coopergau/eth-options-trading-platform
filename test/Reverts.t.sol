@@ -3,7 +3,6 @@
 pragma solidity ^0.8.27;
 
 import {Test} from "lib/forge-std/src/Test.sol";
-import {console} from "lib/forge-std/src/console.sol";
 import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 
@@ -12,19 +11,29 @@ contract Reverts is Test {
     OptionsMarketplace public optionsMarketplace;
     address public seller = address(1);
     address public buyer = address(2);
-    uint256 public constant STARTING_BALANCE = 10 ether;
+    uint256 public constant STARTING_BALANCE = 100 ether;
 
     // Variables for listing valid option
+    uint256 public expiration;
+    uint256 public constant SECONDS_PER_HOUR = 3600;
     uint256 public constant PREMIUM = 0.1 ether;
-    uint256 public constant STRIKE_PRICE = 1 ether;
-    uint256 public constant EXPIRATION = 3600; // One hour into the future
+    uint256 public constant STRIKE_PRICE = 25 ether;
     bool public constant IS_CALL = true;
+
+    uint256 public constant ANVIL_TESTNET_CHAIN_ID = 31337;
 
     function setUp() external {
         DeployOptionsMarketplace deployer = new DeployOptionsMarketplace();
         optionsMarketplace = deployer.run();
         vm.deal(seller, STARTING_BALANCE);
         vm.deal(buyer, STARTING_BALANCE);
+
+        // Set the expiration variable to one hour into the future
+        if (block.chainid == ANVIL_TESTNET_CHAIN_ID) {
+            expiration = SECONDS_PER_HOUR;
+        } else {
+            expiration = block.timestamp + SECONDS_PER_HOUR;
+        }
     }
 
     // listOption reverts
@@ -38,14 +47,14 @@ contract Reverts is Test {
         optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(
             PREMIUM,
             STRIKE_PRICE,
-            EXPIRATION,
+            expiration,
             IS_CALL
         );
     }
 
     function testListOptionRevertsIfExpirationTimestampHasPassed() public {
         // Set the current block's timestamp to after the expiration timestamp
-        vm.warp(EXPIRATION + 1);
+        vm.warp(expiration + 1);
 
         vm.prank(seller);
         vm.expectRevert(
@@ -56,7 +65,7 @@ contract Reverts is Test {
         optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
-            EXPIRATION,
+            expiration,
             IS_CALL
         );
     }
@@ -67,7 +76,7 @@ contract Reverts is Test {
         uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
-            EXPIRATION,
+            expiration,
             IS_CALL
         );
         return optionId;
@@ -190,7 +199,7 @@ contract Reverts is Test {
         uint256 optionId = helperListOption();
         helperBuyOption(optionId);
 
-        vm.warp(EXPIRATION + 1);
+        vm.warp(expiration + 1);
         vm.prank(buyer);
         vm.expectRevert(
             OptionsMarketplace.OptionsMarketplace__OptionHasExpired.selector
@@ -198,7 +207,7 @@ contract Reverts is Test {
         optionsMarketplace.redeemOption(optionId);
     }
 
-    /* function testRedeemOptionRevertsIfAlreadyRedeemed() public {
+    function testRedeemOptionRevertsIfAlreadyRedeemed() public {
         uint256 optionId = helperListOption();
         helperBuyOption(optionId);
 
@@ -214,7 +223,7 @@ contract Reverts is Test {
                 .selector
         );
         optionsMarketplace.redeemOption(optionId);
-    }*/
+    }
 
     // getAssetPrice reverts
     // getOptionInfo reverts
