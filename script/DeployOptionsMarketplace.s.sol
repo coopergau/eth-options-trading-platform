@@ -11,9 +11,7 @@ contract DeployOptionsMarketplace is Script {
         HelperConfig helperConfig = new HelperConfig();
 
         vm.startBroadcast();
-        OptionsMarketplace optionsMarketplace = new OptionsMarketplace(
-            helperConfig.btcEthPriceFeed()
-        );
+        OptionsMarketplace optionsMarketplace = new OptionsMarketplace(helperConfig.btcEthPriceFeed());
         vm.stopBroadcast();
 
         return optionsMarketplace;
