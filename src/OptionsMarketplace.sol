@@ -50,11 +50,12 @@ contract OptionsMarketplace {
         priceFeed = AggregatorV3Interface(_priceFeedId);
     }
 
-    function listOption(uint256 _premium, uint256 _strikePrice, uint256 _expiration, bool _isCall)
-        public
-        payable
-        returns (uint256)
-    {
+    function listOption(
+        uint256 _premium,
+        uint256 _strikePrice,
+        uint256 _expiration,
+        bool _isCall
+    ) public payable returns (uint256) {
         if (msg.value != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
         }
@@ -111,7 +112,9 @@ contract OptionsMarketplace {
 
         option.buyer = msg.sender;
 
-        (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
+        (bool optionPurchaseSuccess, ) = option.seller.call{
+            value: option.premium
+        }("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
@@ -120,6 +123,10 @@ contract OptionsMarketplace {
     function redeemOption(uint256 _optionId) public {
         // Checks
         Option storage option = options[_optionId];
+        // Check that the option exists
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
         // Check that the option has been bought
         if (option.buyer == address(0)) {
             revert OptionsMarketplace__OptionHasNotBeenBought();
@@ -160,13 +167,15 @@ contract OptionsMarketplace {
 
         // Interactions
         // Send option value to the buyer
-        (bool optionRedeemSuccess,) = msg.sender.call{value: optionValue}("");
+        (bool optionRedeemSuccess, ) = msg.sender.call{value: optionValue}("");
         if (!optionRedeemSuccess) {
             revert OptionsMarketplace__OptionRedeemFailed();
         }
         // Send left over value back to the seller
         if (leftOverValue > 0) {
-            (bool leftOverSuccess,) = option.seller.call{value: leftOverValue}("");
+            (bool leftOverSuccess, ) = option.seller.call{value: leftOverValue}(
+                ""
+            );
             if (!leftOverSuccess) {
                 revert OptionsMarketplace__LeftOverTransferFailed();
             }
@@ -174,14 +183,16 @@ contract OptionsMarketplace {
     }
 
     function getAssetPrice() internal view returns (uint256) {
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.latestRoundData();
         if (price < 0) {
             revert OptionsMarketplace__PriceFeedGaveNegativePrice();
         }
         return uint256(price);
     }
 
-    function getOptionInfo(uint256 _optionId) public view returns (Option memory) {
+    function getOptionInfo(
+        uint256 _optionId
+    ) public view returns (Option memory) {
         Option memory option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();

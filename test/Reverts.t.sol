@@ -30,8 +30,17 @@ contract Reverts is Test {
     // listOption reverts
     function testListOptionRevertsIfAmountSentIsNotStrikePrice() public {
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__AmountSentIsNotStrikePrice.selector);
-        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__AmountSentIsNotStrikePrice
+                .selector
+        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE + 1}(
+            PREMIUM,
+            STRIKE_PRICE,
+            EXPIRATION,
+            IS_CALL
+        );
     }
 
     function testListOptionRevertsIfExpirationTimestampHasPassed() public {
@@ -39,28 +48,174 @@ contract Reverts is Test {
         vm.warp(EXPIRATION + 1);
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__ExpirationTimestampHasPassed.selector);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__ExpirationTimestampHasPassed
+                .selector
+        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(
+            PREMIUM,
+            STRIKE_PRICE,
+            EXPIRATION,
+            IS_CALL
+        );
     }
 
-    // Tests with the other functions often use this function to work with an already listed option.
+    // Tests with the other functions often use options that have been listed and/or bought.
     function helperListOption() internal returns (uint256) {
         vm.prank(seller);
-        uint256 optionId =
-            optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, EXPIRATION, IS_CALL);
+        uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
+            PREMIUM,
+            STRIKE_PRICE,
+            EXPIRATION,
+            IS_CALL
+        );
         return optionId;
     }
-    // changePremium reverts
 
+    function helperBuyOption(uint256 _optionId) internal {
+        vm.prank(buyer);
+        optionsMarketplace.buyOption{value: PREMIUM}(_optionId);
+    }
+
+    // changePremium reverts
     function testChangePremiumRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 
         vm.prank(seller);
-        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
         optionsMarketplace.changePremium(invalidOptionId, PREMIUM + 0.1 ether);
     }
+
+    function testChangePremiumRevertsIfNotTheSeller() public {
+        uint256 optionId = helperListOption();
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__YouAreNotTheSellerOfThisOption
+                .selector
+        );
+        optionsMarketplace.changePremium(optionId, PREMIUM + 0.1 ether);
+    }
+
+    function testChangePremiumRevertsIfOptionAlreadyBought() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        vm.prank(seller);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasAlreadyBeenBought
+                .selector
+        );
+        optionsMarketplace.changePremium(optionId, PREMIUM + 0.1 ether);
+    }
+
     // buyOption reverts
+    function testbuyOptionRevertsIfOptionDoesNotExist() public {
+        uint256 invalidOptionId = 0;
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
+        optionsMarketplace.buyOption{value: PREMIUM}(invalidOptionId);
+    }
+
+    function testbuyOptionRevertsIfOptionAlreadyBought() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasAlreadyBeenBought
+                .selector
+        );
+        optionsMarketplace.buyOption{value: PREMIUM}(optionId);
+    }
+
+    function testbuyOptionRevertsIfAmountSentIsNotPremium() public {
+        uint256 optionId = helperListOption();
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__SentIncorrectAmountOfEth
+                .selector
+        );
+        optionsMarketplace.buyOption{value: PREMIUM + 0.1 ether}(optionId);
+    }
+
     // redeemOption reverts
+    function testRedeemOptionRevertsIfOptionDoesNotExist() public {
+        uint256 invalidOptionId = 0;
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
+        );
+        optionsMarketplace.redeemOption(invalidOptionId);
+    }
+
+    function testRedeemOptionRevertsIfOptionNotBought() public {
+        uint256 optionId = helperListOption();
+
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionHasNotBeenBought
+                .selector
+        );
+        optionsMarketplace.redeemOption(optionId);
+    }
+
+    function testRedeemOptionRevertsIfNotBuyer() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        vm.prank(seller);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__YouAreNotTheBuyerOfThisOption
+                .selector
+        );
+        optionsMarketplace.redeemOption(optionId);
+    }
+
+    function testRedeemOptionRevertsIfExpired() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        vm.warp(EXPIRATION + 1);
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace.OptionsMarketplace__OptionHasExpired.selector
+        );
+        optionsMarketplace.redeemOption(optionId);
+    }
+
+    /* function testRedeemOptionRevertsIfAlreadyRedeemed() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        // This redeem should go through
+        vm.prank(buyer);
+        optionsMarketplace.redeemOption(optionId);
+
+        // This redeem should fail
+        vm.prank(buyer);
+        vm.expectRevert(
+            OptionsMarketplace
+                .OptionsMarketplace__OptionAlreadyRedeemed
+                .selector
+        );
+        optionsMarketplace.redeemOption(optionId);
+    }*/
+
     // getAssetPrice reverts
     // getOptionInfo reverts
 }
