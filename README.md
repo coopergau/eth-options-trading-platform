@@ -10,7 +10,7 @@ When users list a put option they are required to send the strike price amount i
 When users list a call option there is no way for them to send enough funds to ensure the future value of the option is covered because where put options are bounded by the asset price going to zero, call options are theoretically unbounded because there is no limit to how high the asset price can go. A practical solution to this is to limit the value a user can redeem an option for to 100% of the strike price, the same as with put options. This means that if the price of the asset increases by more than 100%, the user will not get any additional returns. For example, if a call option has a strike price of 0.20 ETH, the seller sends 0.20 ETH when they list the option. If the option is bought and redeemed and the asset price is 0.25 ETH, the user that bought the option gets 0.25 ETH - 0.20 ETH = 0.05 ETH. However, if the asset price is 0.45 ETH, this would normally mean the user who bought the option would get 0.45 ETH - 0.20 ETH = 0.25 ETH, but because we are capping the redeemable value to 100% of the strike price, the user will only receive 0.20 ETH.
 
 ## To Do
-- add all events
+- add other function events and their tests
 - make sure order of stuff is checks effects (Including events I think) and interactions
 - add non reentrants
 - Contract has nothing built in if chainlink goes down or returns negative prices, it just reverts so redeeming options would not be possible
