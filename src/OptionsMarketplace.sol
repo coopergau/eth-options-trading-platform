@@ -42,7 +42,7 @@ contract OptionsMarketplace {
 
     // Events
     event OptionListed(uint256 optionId, Option option);
-    event OptionPriceChanged(uint256 optionId, Option option);
+    event OptionPremiumChanged(uint256 optionId, Option option);
     event OptionBought(uint256 optionId, Option option);
     event OptionRedeemed(uint256 optionId, Option option);
 
@@ -83,7 +83,7 @@ contract OptionsMarketplace {
         return optionId;
     }
 
-    function changePremium(uint256 _optionId, uint256 newPremium) public {
+    function changePremium(uint256 _optionId, uint256 _newPremium) public {
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -95,8 +95,8 @@ contract OptionsMarketplace {
             revert OptionsMarketplace__OptionHasAlreadyBeenBought();
         }
 
-        option.premium = newPremium;
-        emit OptionPriceChanged(_optionId, option);
+        option.premium = _newPremium;
+        emit OptionPremiumChanged(_optionId, option);
     }
 
     function buyOption(uint256 _optionId) public payable {
@@ -119,6 +119,8 @@ contract OptionsMarketplace {
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
+
+        emit OptionBought(_optionId, option);
     }
 
     function redeemOption(uint256 _optionId) public {
@@ -181,8 +183,11 @@ contract OptionsMarketplace {
                 revert OptionsMarketplace__LeftOverTransferFailed();
             }
         }
+
+        emit OptionRedeemed(_optionId, option);
     }
 
+    // Getter Functions
     function getAssetPrice() public view returns (uint256) {
         (, int256 price, , , ) = priceFeedInterface.latestRoundData();
         if (price < 0) {

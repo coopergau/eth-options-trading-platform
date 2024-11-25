@@ -71,7 +71,7 @@ contract Reverts is Test {
         );
     }
 
-    // Tests with the other functions often use options that have been listed and/or bought.
+    // The following tests often use options that have been listed and/or bought.
     function helperListOption() internal returns (uint256) {
         vm.prank(seller);
         uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
