@@ -26,8 +26,8 @@ contract OptionsMarketplace {
     struct Option {
         address seller;
         address buyer;
-        uint256 premium; // Price in ETH
-        uint256 strikePrice; // Price in ETH
+        uint256 premium; // Price in wei
+        uint256 strikePrice; // Price in wei
         uint256 expiration; // Timestamp
         bool isCall;
         bool redeemed;
@@ -156,6 +156,10 @@ contract OptionsMarketplace {
         if (option.isCall) {
             if (currentPrice <= option.strikePrice) {
                 optionValue = 0;
+            } else if (
+                currentPrice - option.strikePrice >= option.strikePrice
+            ) {
+                optionValue = option.strikePrice;
             } else {
                 optionValue = currentPrice - option.strikePrice;
             }

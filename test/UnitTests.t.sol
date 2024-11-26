@@ -6,13 +6,12 @@ import {Test} from "lib/forge-std/src/Test.sol";
 import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
-import {console} from "lib/forge-std/src/console.sol";
 
-// Should I put info here?
+// Function Unit Tests
 contract UnitTests is Test {
     OptionsMarketplace public optionsMarketplace;
-    address public seller = address(1);
-    address public buyer = address(2);
+    address public constant SELLER = address(1);
+    address public constant BUYER = address(2);
     uint256 public constant STARTING_BALANCE = 100 ether;
 
     // Variables for listing valid option
@@ -30,8 +29,8 @@ contract UnitTests is Test {
     function setUp() external {
         DeployOptionsMarketplace deployer = new DeployOptionsMarketplace();
         optionsMarketplace = deployer.run();
-        vm.deal(seller, STARTING_BALANCE);
-        vm.deal(buyer, STARTING_BALANCE);
+        vm.deal(SELLER, STARTING_BALANCE);
+        vm.deal(BUYER, STARTING_BALANCE);
 
         // Set the expiration variable to one hour into the future
         if (block.chainid == ANVIL_CHAIN_ID) {
@@ -44,7 +43,7 @@ contract UnitTests is Test {
     // listOption tests
     function testListOptionListsWithRightInfo() public {
         uint256 firstOptionId = optionsMarketplace.getNextOptionId();
-        vm.prank(seller);
+        vm.prank(SELLER);
         optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
@@ -55,7 +54,7 @@ contract UnitTests is Test {
         OptionsMarketplace.Option memory option = optionsMarketplace
             .getOptionInfo(firstOptionId);
 
-        assertEq(option.seller, seller);
+        assertEq(option.seller, SELLER);
         assertEq(option.buyer, address(0));
         assertEq(option.premium, PREMIUM);
         assertEq(option.strikePrice, STRIKE_PRICE);
@@ -65,10 +64,10 @@ contract UnitTests is Test {
     }
 
     function testListOptionUpdatesBalances() public {
-        uint256 initialSellerBalance = seller.balance;
+        uint256 initialSellerBalance = SELLER.balance;
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
-        vm.prank(seller);
+        vm.prank(SELLER);
         optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
@@ -76,7 +75,7 @@ contract UnitTests is Test {
             IS_CALL
         );
 
-        uint256 finalSellerBalance = seller.balance;
+        uint256 finalSellerBalance = SELLER.balance;
         uint256 finalContractBalance = address(optionsMarketplace).balance;
 
         assertEq(finalSellerBalance, initialSellerBalance - STRIKE_PRICE);
@@ -86,7 +85,7 @@ contract UnitTests is Test {
     function testListOptionUpdatesNextOptionId() public {
         uint256 initialNextOptionId = optionsMarketplace.getNextOptionId();
 
-        vm.prank(seller);
+        vm.prank(SELLER);
         optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
@@ -103,7 +102,7 @@ contract UnitTests is Test {
         uint256 firstOptionId = optionsMarketplace.getNextOptionId();
         OptionsMarketplace.Option memory expectedOption = OptionsMarketplace
             .Option({
-                seller: seller,
+                seller: SELLER,
                 buyer: address(0),
                 premium: PREMIUM,
                 strikePrice: STRIKE_PRICE,
@@ -114,7 +113,7 @@ contract UnitTests is Test {
 
         vm.expectEmit();
         emit OptionsMarketplace.OptionListed(firstOptionId, expectedOption);
-        vm.prank(seller);
+        vm.prank(SELLER);
         optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
@@ -125,7 +124,7 @@ contract UnitTests is Test {
 
     // The following tests often use options that have been listed.
     function helperListOption(bool _isCall) internal returns (uint256) {
-        vm.prank(seller);
+        vm.prank(SELLER);
         uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
             PREMIUM,
             STRIKE_PRICE,
@@ -140,7 +139,7 @@ contract UnitTests is Test {
         uint256 newPremium = PREMIUM + 1 ether;
         uint256 optionId = helperListOption(IS_CALL);
 
-        vm.prank(seller);
+        vm.prank(SELLER);
         optionsMarketplace.changePremium(optionId, newPremium);
 
         OptionsMarketplace.Option memory option = optionsMarketplace
@@ -153,33 +152,36 @@ contract UnitTests is Test {
     function testBuyOptionUpdatesBuyerField() public {
         uint256 optionId = helperListOption(IS_CALL);
 
-        vm.prank(buyer);
+        vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
 
         OptionsMarketplace.Option memory option = optionsMarketplace
             .getOptionInfo(optionId);
 
-        assertEq(option.buyer, address(buyer));
+        assertEq(option.buyer, address(BUYER));
     }
 
     // redeemOption tests
-    /* To effectively test the redeemOption function with different asset prices there are tests in the FuzzTests.t.sol files. These tests require maipulation of the asset price feed so they are only run on anvil. This test is intended to ensure that the redeemOption function works correctly on the eth mainnet and sepolia testnet so it only tests with the current actualy price. */
+    /* To effectively test the redeemOption function with different asset prices there are tests in the FuzzTests.t.sol files. 
+    These tests require maipulation of the asset price feed so they are only run on anvil. This test is intended to ensure that the 
+    redeemOption function works correctly on the eth mainnet and sepolia testnet so it only tests with the current actualy price. */
     function testRedeemOptionCallUpdatesBalances() public {
         uint256 optionId = helperListOption(IS_CALL);
-        vm.prank(buyer);
+        vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
 
         // Get initial balances
-        uint256 initialSellerBalance = seller.balance;
-        uint256 initialBuyerBalance = buyer.balance;
+        uint256 initialSellerBalance = SELLER.balance;
+        uint256 initialBuyerBalance = BUYER.balance;
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
-        // Theoretically this test could fail if the asset price changes in the time between the getAssetPrice call and the redeemoption call.
+        // Redeem the option
+        // Theoretically this test could fail if the asset price changes in the time between the getAssetPrice call and the redeemOption call.
         uint256 currentAssetPrice = optionsMarketplace.getAssetPrice();
-        vm.prank(buyer);
+        vm.prank(BUYER);
         optionsMarketplace.redeemOption(optionId);
 
-        // Calculate the amounts the ETH that go to the buyer and seller
+        // Calculate the amounts the ETH that go to the BUYER and SELLER
         uint256 optionValue;
         if (currentAssetPrice <= STRIKE_PRICE) {
             optionValue = 0;
@@ -191,8 +193,8 @@ contract UnitTests is Test {
         uint256 leftOverValue = STRIKE_PRICE - optionValue;
 
         // Get final balances
-        uint256 finalSellerBalance = seller.balance;
-        uint256 finalBuyerBalance = buyer.balance;
+        uint256 finalSellerBalance = SELLER.balance;
+        uint256 finalBuyerBalance = BUYER.balance;
         uint256 finalContractBalance = address(optionsMarketplace).balance;
 
         assertEq(finalSellerBalance, initialSellerBalance + leftOverValue);
@@ -202,20 +204,21 @@ contract UnitTests is Test {
 
     function testRedeemOptionPutUpdatesBalances() public {
         uint256 optionId = helperListOption(IS_PUT);
-        vm.prank(buyer);
+        vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
 
         // Get initial balances
-        uint256 initialSellerBalance = seller.balance;
-        uint256 initialBuyerBalance = buyer.balance;
+        uint256 initialSellerBalance = SELLER.balance;
+        uint256 initialBuyerBalance = BUYER.balance;
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
-        // Theoretically this test could fail if the asset price changes in the time between the getAssetPrice call and the redeemoption call.
+        // Redeem the option
+        // Theoretically this test could fail if the asset price changes in the time between the getAssetPrice call and the redeemOption call.
         uint256 currentAssetPrice = optionsMarketplace.getAssetPrice();
-        vm.prank(buyer);
+        vm.prank(BUYER);
         optionsMarketplace.redeemOption(optionId);
 
-        // Calculate the amounts the ETH that go to the buyer and seller
+        // Calculate the amounts the ETH that go to the BUYER and SELLER
         uint256 optionValue;
         if (currentAssetPrice >= STRIKE_PRICE) {
             optionValue = 0;
@@ -225,8 +228,8 @@ contract UnitTests is Test {
         uint256 leftOverValue = STRIKE_PRICE - optionValue;
 
         // Get final balances
-        uint256 finalSellerBalance = seller.balance;
-        uint256 finalBuyerBalance = buyer.balance;
+        uint256 finalSellerBalance = SELLER.balance;
+        uint256 finalBuyerBalance = BUYER.balance;
         uint256 finalContractBalance = address(optionsMarketplace).balance;
 
         assertEq(finalSellerBalance, initialSellerBalance + leftOverValue);
