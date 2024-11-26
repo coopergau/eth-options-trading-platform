@@ -35,12 +35,8 @@ contract UnitTests is Test {
 
     function helperListOption(bool _isCall) internal returns (uint256) {
         vm.prank(SELLER);
-        uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            EXPIRATION,
-            _isCall
-        );
+        uint256 optionId =
+            optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, EXPIRATION, _isCall);
         return optionId;
     }
 
@@ -48,9 +44,7 @@ contract UnitTests is Test {
     for the price because the tests are intended to test different valid prices. A negative price would cause an
     error which is tested for in Reverts.t.sol. */
 
-    function testFuzzRedeemOptionCallUpdatesBalances(
-        uint256 _assetPrice
-    ) public {
+    function testFuzzRedeemOptionCallUpdatesBalances(uint256 _assetPrice) public {
         if (block.chainid != ANVIL_CHAIN_ID) {
             return;
         }
@@ -68,9 +62,7 @@ contract UnitTests is Test {
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
         // Change the asset price
-        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(
-            optionsMarketplace.getPriceFeedAddress()
-        );
+        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(optionsMarketplace.getPriceFeedAddress());
         mockV3Aggregator.updateAnswer(int256(_assetPrice));
 
         // Redeem the option
@@ -100,9 +92,7 @@ contract UnitTests is Test {
         assertEq(finalContractBalance, initialContractBalance - STRIKE_PRICE);
     }
 
-    function testFuzzRedeemOptionPutUpdatesBalances(
-        uint256 _assetPrice
-    ) public {
+    function testFuzzRedeemOptionPutUpdatesBalances(uint256 _assetPrice) public {
         if (block.chainid != ANVIL_CHAIN_ID) {
             return;
         }
@@ -120,9 +110,7 @@ contract UnitTests is Test {
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
         // Change the asset price
-        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(
-            optionsMarketplace.getPriceFeedAddress()
-        );
+        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(optionsMarketplace.getPriceFeedAddress());
         mockV3Aggregator.updateAnswer(int256(_assetPrice));
 
         // Redeem the option
