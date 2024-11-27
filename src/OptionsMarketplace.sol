@@ -44,17 +44,12 @@ contract OptionsMarketplace is ReentrancyGuard {
         bool redeemed;
     }
 
-    AggregatorV3Interface internal immutable priceFeedInterface;
-
     /*//////////////////////////////////////////////////////////////
-                             STATE-VARIABLES
+                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     uint256 internal nextOptionId = 0;
-
-    /*//////////////////////////////////////////////////////////////
-                                MAPPINGS
-    //////////////////////////////////////////////////////////////*/
     mapping(uint256 => Option) internal options;
+    AggregatorV3Interface internal immutable priceFeedInterface;
 
     /*//////////////////////////////////////////////////////////////
                                  EVENTS
