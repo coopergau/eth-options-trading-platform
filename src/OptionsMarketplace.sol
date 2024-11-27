@@ -3,10 +3,19 @@
 pragma solidity ^0.8.27;
 
 import {AggregatorV3Interface} from "lib/chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-//import {console} from "lib/forge-std/src/console.sol";
+import {ReentrancyGuard} from "../lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
-contract OptionsMarketplace {
-    // Errors
+/**
+ * @title Options Trading Platform
+ * @author Cooper Gau
+ *
+ * This contract acts as a decentralized market place for on-chain options for a given asset. The Asset can be specified in
+ * the constructor with any chainlink price feed, but this example uses Bitcoin priced in terms of Ether (BTC/ETH).
+ */
+contract OptionsMarketplace is ReentrancyGuard {
+    /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
     error OptionsMarketplace__AmountSentIsNotStrikePrice();
     error OptionsMarketplace__ExpirationTimestampHasPassed();
     error OptionsMarketplace__OptionDoesNotExist();
@@ -22,7 +31,9 @@ contract OptionsMarketplace {
     error OptionsMarketplace__OptionRedeemFailed();
     error OptionsMarketplace__LeftOverTransferFailed();
 
-    // Structs
+    /*//////////////////////////////////////////////////////////////
+                                  TYPES
+    //////////////////////////////////////////////////////////////*/
     struct Option {
         address seller;
         address buyer;
@@ -32,30 +43,52 @@ contract OptionsMarketplace {
         bool isCall;
         bool redeemed;
     }
-
-    // Variables
-    uint256 internal nextOptionId = 0;
     AggregatorV3Interface internal immutable priceFeedInterface;
 
-    // Mappings
+    /*//////////////////////////////////////////////////////////////
+                             STATE-VARIABLES
+    //////////////////////////////////////////////////////////////*/
+    uint256 internal nextOptionId = 0;
+
+    /*//////////////////////////////////////////////////////////////
+                                MAPPINGS
+    //////////////////////////////////////////////////////////////*/
     mapping(uint256 => Option) internal options;
 
-    // Events
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
     event OptionListed(uint256 optionId, Option option);
     event OptionPremiumChanged(uint256 optionId, Option option);
     event OptionBought(uint256 optionId, Option option);
     event OptionRedeemed(uint256 optionId, Option option);
 
-    // Functions
+    /*//////////////////////////////////////////////////////////////
+                                FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     constructor(address _priceFeedId) {
         priceFeedInterface = AggregatorV3Interface(_priceFeedId);
     }
 
-    function listOption(uint256 _premium, uint256 _strikePrice, uint256 _expiration, bool _isCall)
-        public
-        payable
-        returns (uint256)
-    {
+    /*//////////////////////////////////////////////////////////////
+                            PUBLIC FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /**
+     * @notice Lists a new option for sale in the marketplace.
+     * @dev The seller must send ETH equal to the strike price when calling this function.
+     * @param _premium The amount the buyer must pay to purchase the option.
+     * @param _strikePrice The strike price of the option (amount to be locked in escrow).
+     * @param _expiration The timestamp at which the option expires.
+     * @param _isCall Whether the option is a call option (true) or put option (false).
+     * @return optionId The unique ID of the newly created option.
+     */
+    function listOption(
+        uint256 _premium,
+        uint256 _strikePrice,
+        uint256 _expiration,
+        bool _isCall
+    ) public payable returns (uint256) {
+        // Checks
         if (msg.value != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
         }
@@ -63,6 +96,7 @@ contract OptionsMarketplace {
             revert OptionsMarketplace__ExpirationTimestampHasPassed();
         }
 
+        // Affects
         uint256 optionId = nextOptionId;
         nextOptionId++;
 
@@ -76,12 +110,19 @@ contract OptionsMarketplace {
             redeemed: false
         });
 
+        // Interactions
         options[optionId] = newOption;
         emit OptionListed(optionId, newOption);
 
         return optionId;
     }
 
+    /**
+     * @notice Allows the seller of an option to update the premium for oe of their existing options.
+     * @dev This function can only be called if the option has not yet been purchased by a buyer.
+     * @param _optionId The unique ID of the option to update.
+     * @param _newPremium The new premium value of the option.
+     */
     function changePremium(uint256 _optionId, uint256 _newPremium) public {
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
@@ -98,7 +139,13 @@ contract OptionsMarketplace {
         emit OptionPremiumChanged(_optionId, option);
     }
 
-    function buyOption(uint256 _optionId) public payable {
+    /**
+     * @notice Allows a user to buy an option that has been listed.
+     * @dev This function can only be called if the option has not yet been already purchased.
+     * @param _optionId The unique ID of the option to update.
+     */
+    function buyOption(uint256 _optionId) public payable nonReentrant {
+        // Checks
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -110,9 +157,13 @@ contract OptionsMarketplace {
             revert OptionsMarketplace__SentIncorrectAmountOfEth();
         }
 
+        // Affects
         option.buyer = msg.sender;
 
-        (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
+        // Interactions
+        (bool optionPurchaseSuccess, ) = option.seller.call{
+            value: option.premium
+        }("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
@@ -120,26 +171,27 @@ contract OptionsMarketplace {
         emit OptionBought(_optionId, option);
     }
 
-    function redeemOption(uint256 _optionId) public {
+    /**
+     * @notice Allows a the buyer of an option to redeem the current value of that option.
+     * @dev This function can be called any time before the expiration date.
+     * @param _optionId The unique ID of the option to update.
+     */
+    function redeemOption(uint256 _optionId) public nonReentrant {
         // Checks
         Option storage option = options[_optionId];
-        // Check that the option exists
+
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
         }
-        // Check that the option has been bought
         if (option.buyer == address(0)) {
             revert OptionsMarketplace__OptionHasNotBeenBought();
         }
-        // Check that the function was called by the buyer
         if (msg.sender != option.buyer) {
             revert OptionsMarketplace__YouAreNotTheBuyerOfThisOption();
         }
-        // Check that the expiration time has not passed
         if (block.timestamp > option.expiration) {
             revert OptionsMarketplace__OptionHasExpired();
         }
-        // Check that the option has not already been redeemed
         if (option.redeemed == true) {
             revert OptionsMarketplace__OptionAlreadyRedeemed();
         }
@@ -153,7 +205,9 @@ contract OptionsMarketplace {
         if (option.isCall) {
             if (currentPrice <= option.strikePrice) {
                 optionValue = 0;
-            } else if (currentPrice - option.strikePrice >= option.strikePrice) {
+            } else if (
+                currentPrice - option.strikePrice >= option.strikePrice
+            ) {
                 optionValue = option.strikePrice;
             } else {
                 optionValue = currentPrice - option.strikePrice;
@@ -169,13 +223,15 @@ contract OptionsMarketplace {
 
         // Interactions
         // Send option value to the buyer
-        (bool optionRedeemSuccess,) = msg.sender.call{value: optionValue}("");
+        (bool optionRedeemSuccess, ) = msg.sender.call{value: optionValue}("");
         if (!optionRedeemSuccess) {
             revert OptionsMarketplace__OptionRedeemFailed();
         }
         // Send left over value back to the seller
         if (leftOverValue > 0) {
-            (bool leftOverSuccess,) = option.seller.call{value: leftOverValue}("");
+            (bool leftOverSuccess, ) = option.seller.call{value: leftOverValue}(
+                ""
+            );
             if (!leftOverSuccess) {
                 revert OptionsMarketplace__LeftOverTransferFailed();
             }
@@ -184,16 +240,20 @@ contract OptionsMarketplace {
         emit OptionRedeemed(_optionId, option);
     }
 
-    // Getter Functions
+    /*//////////////////////////////////////////////////////////////
+                            GETTER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function getAssetPrice() public view returns (uint256) {
-        (, int256 price,,,) = priceFeedInterface.latestRoundData();
+        (, int256 price, , , ) = priceFeedInterface.latestRoundData();
         if (price < 0) {
             revert OptionsMarketplace__PriceFeedGaveNegativePrice();
         }
         return uint256(price);
     }
 
-    function getOptionInfo(uint256 _optionId) public view returns (Option memory) {
+    function getOptionInfo(
+        uint256 _optionId
+    ) external view returns (Option memory) {
         Option memory option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -201,11 +261,11 @@ contract OptionsMarketplace {
         return options[_optionId];
     }
 
-    function getPriceFeedAddress() public view returns (address) {
+    function getPriceFeedAddress() external view returns (address) {
         return address(priceFeedInterface);
     }
 
-    function getNextOptionId() public view returns (uint256) {
+    function getNextOptionId() external view returns (uint256) {
         return nextOptionId;
     }
 }
