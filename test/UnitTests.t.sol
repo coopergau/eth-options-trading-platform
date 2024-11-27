@@ -7,7 +7,6 @@ import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
-// Function Unit Tests
 contract UnitTests is Test {
     OptionsMarketplace public optionsMarketplace;
     address public constant SELLER = address(1);
@@ -40,7 +39,9 @@ contract UnitTests is Test {
         }
     }
 
-    // listOption tests
+    /*//////////////////////////////////////////////////////////////
+                            listOption TESTS
+    //////////////////////////////////////////////////////////////*/
     function testListOptionListsWithRightInfo() public {
         uint256 firstOptionId = optionsMarketplace.getNextOptionId();
         vm.prank(SELLER);
@@ -100,7 +101,7 @@ contract UnitTests is Test {
         optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
     }
 
-    // The following tests often use options that have been listed.
+    // The following tests often use options that have already been listed.
     function helperListOption(bool _isCall) internal returns (uint256) {
         vm.prank(SELLER);
         uint256 optionId =
@@ -108,7 +109,9 @@ contract UnitTests is Test {
         return optionId;
     }
 
-    // changePremium tests
+    /*//////////////////////////////////////////////////////////////
+                           changePremium TESTS
+    //////////////////////////////////////////////////////////////*/
     function testChangePremiumChangesPremium() public {
         uint256 newPremium = PREMIUM + 1 ether;
         uint256 optionId = helperListOption(IS_CALL);
@@ -140,7 +143,9 @@ contract UnitTests is Test {
         optionsMarketplace.changePremium(optionId, newPremium);
     }
 
-    // buyOption tests
+    /*//////////////////////////////////////////////////////////////
+                             buyOption TESTS
+    //////////////////////////////////////////////////////////////*/
     function testBuyOptionUpdatesBuyerField() public {
         uint256 optionId = helperListOption(IS_CALL);
 
@@ -170,10 +175,14 @@ contract UnitTests is Test {
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
     }
 
-    // redeemOption tests
-    /* To effectively test the redeemOption function with different asset prices there are tests in the FuzzTests.t.sol files. 
-    These tests require maipulation of the asset price feed so they are only run on anvil. This test is intended to ensure that the 
-    redeemOption function works correctly on the eth mainnet and sepolia testnet so it only tests with the current actualy price. */
+    /*//////////////////////////////////////////////////////////////
+                           redeemOption TESTS
+    //////////////////////////////////////////////////////////////*/
+    /**
+     * @dev To effectively test the redeemOption function with different asset prices there are tests in the FuzzTests.t.sol file.
+     * These tests require maipulation of the asset price feed so they are only run on anvil. The following two tests are intended to ensure
+     * that the redeemOption function works correctly on the eth mainnet and sepolia testnet, so it only tests with the current actual price.
+     */
     function testRedeemOptionCallUpdatesBalances() public {
         uint256 optionId = helperListOption(IS_CALL);
         vm.prank(BUYER);
@@ -266,7 +275,12 @@ contract UnitTests is Test {
         optionsMarketplace.redeemOption(optionId);
     }
 
-    // getAssetPrice test (only anvil)
+    /*//////////////////////////////////////////////////////////////
+                           getAssetPrice TEST
+    //////////////////////////////////////////////////////////////*/
+    /**
+     * @dev This is only to make sure the anvil mock price feed returns the correct price, so it only runs if the contract is deployed on anvil.
+     */
     function testGetAssetPriceReturnsCorrectPriceWithMock() public {
         if (block.chainid != ANVIL_CHAIN_ID) {
             return;

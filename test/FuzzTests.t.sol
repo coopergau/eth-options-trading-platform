@@ -6,10 +6,8 @@ import {Test} from "lib/forge-std/src/Test.sol";
 import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
-import {console} from "../lib/forge-std/src/console.sol";
 
-// Function Unit Tests
-contract UnitTests is Test {
+contract FuzzTests is Test {
     OptionsMarketplace public optionsMarketplace;
     address public constant SELLER = address(1);
     address public constant BUYER = address(2);
@@ -40,18 +38,21 @@ contract UnitTests is Test {
         return optionId;
     }
 
-    /* Even though the real price feed returns an int256, both of these functions get tested with random unit256 values 
-    for the price because the tests are intended to test different valid prices. A negative price would cause an
-    error which is tested for in Reverts.t.sol. */
-
+    /**
+     * @notice These functions are intended to test the redeemOption function with a multitude of random asset prices.
+     * @dev Even though the real price feed returns an int256, both of these functions get tested with random unit256 values
+     * for the price because the tests are intended to test different valid prices. A negative price would cause an
+     * error which is tested for in Reverts.t.sol.
+     * @dev The random prices for the asset price are set to be anywhere from 0 to 1 trillion ether (1 trillion ether is 10^12 * 10^18 = 10^30 in wei).
+     */
     function testFuzzRedeemOptionCallUpdatesBalances(uint256 _assetPrice) public {
         if (block.chainid != ANVIL_CHAIN_ID) {
             return;
         }
 
-        // This tests prices for the asset price being anywhere from 0 to 1 trillion ether (1 trillion ether is 10^9 * 10^18 = 10^27 in wei).
-        vm.assume(_assetPrice <= 1e27);
+        vm.assume(_assetPrice <= 1e30); // 1 trillion ether
 
+        // List and buy a new call option
         uint256 optionId = helperListOption(IS_CALL);
         vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
@@ -66,7 +67,6 @@ contract UnitTests is Test {
         mockV3Aggregator.updateAnswer(int256(_assetPrice));
 
         // Redeem the option
-        console.log(_assetPrice);
         uint256 currentAssetPrice = optionsMarketplace.getAssetPrice();
         vm.prank(BUYER);
         optionsMarketplace.redeemOption(optionId);
@@ -97,9 +97,9 @@ contract UnitTests is Test {
             return;
         }
 
-        // This tests prices for the asset price being anywhere from 0 to 1 trillion ether (1 trillion ether is 10^9 * 10^18 = 10^27 in wei).
-        vm.assume(_assetPrice <= 1e27);
+        vm.assume(_assetPrice <= 1e30); // 1 trillion ether
 
+        // List and buy a new put option
         uint256 optionId = helperListOption(IS_PUT);
         vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);

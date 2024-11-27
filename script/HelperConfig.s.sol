@@ -5,6 +5,10 @@ pragma solidity ^0.8.27;
 import {Script} from "lib/forge-std/src/Script.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
+/**
+ * @notice This script is used to identify the correct BTC/ETH price feed address for the constructor of the
+ * OptionsMarketplace contract, depending on which chain it is being deployed on.
+ */
 contract HelperConfig is Script {
     address public immutable btcEthPriceFeed;
 

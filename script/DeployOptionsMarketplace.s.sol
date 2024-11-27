@@ -6,6 +6,10 @@ import {Script} from "lib/forge-std/src/Script.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
+/**
+ * @dev This script deploys the OptionsMarketplace contract and uses a HelperConfig
+ *      contract to provide the correct address of the BTC/ETH price feed.
+ */
 contract DeployOptionsMarketplace is Script {
     function run() external returns (OptionsMarketplace) {
         HelperConfig helperConfig = new HelperConfig();

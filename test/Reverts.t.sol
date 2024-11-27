@@ -7,7 +7,6 @@ import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
-// Contract tests reverts of if statements in the beginning of functions
 contract Reverts is Test {
     OptionsMarketplace public optionsMarketplace;
     address public seller = address(1);
@@ -37,7 +36,9 @@ contract Reverts is Test {
         }
     }
 
-    // listOption reverts
+    /*//////////////////////////////////////////////////////////////
+                           listOption REVERTS
+    //////////////////////////////////////////////////////////////*/
     function testListOptionRevertsIfAmountSentIsNotStrikePrice() public {
         vm.prank(seller);
         vm.expectRevert(OptionsMarketplace.OptionsMarketplace__AmountSentIsNotStrikePrice.selector);
@@ -66,7 +67,9 @@ contract Reverts is Test {
         optionsMarketplace.buyOption{value: PREMIUM}(_optionId);
     }
 
-    // changePremium reverts
+    /*//////////////////////////////////////////////////////////////
+                          changePremium REVERTS
+    //////////////////////////////////////////////////////////////*/
     function testChangePremiumRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 
@@ -92,7 +95,9 @@ contract Reverts is Test {
         optionsMarketplace.changePremium(optionId, PREMIUM + 0.1 ether);
     }
 
-    // buyOption reverts
+    /*//////////////////////////////////////////////////////////////
+                            buyOption REVERTS
+    //////////////////////////////////////////////////////////////*/
     function testbuyOptionRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 
@@ -118,7 +123,9 @@ contract Reverts is Test {
         optionsMarketplace.buyOption{value: PREMIUM + 0.1 ether}(optionId);
     }
 
-    // redeemOption reverts
+    /*//////////////////////////////////////////////////////////////
+                          redeemOption REVERTS
+    //////////////////////////////////////////////////////////////*/
     function testRedeemOptionRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 
@@ -168,7 +175,9 @@ contract Reverts is Test {
         optionsMarketplace.redeemOption(optionId);
     }
 
-    // getAssetPrice reverts
+    /*//////////////////////////////////////////////////////////////
+                          getAssetPrice REVERT
+    //////////////////////////////////////////////////////////////*/
     function testGetAssetPriceRevertsIfPriceIsNegative() public {
         // This test only runs on anvil beause it requires a MockV3Aggregator
         if (block.chainid != ANVIL_CHAIN_ID) {
@@ -184,7 +193,9 @@ contract Reverts is Test {
         optionsMarketplace.getAssetPrice();
     }
 
-    // getOptionInfo reverts
+    /*//////////////////////////////////////////////////////////////
+                          getOptionInfo REVERT
+    //////////////////////////////////////////////////////////////*/
     function testGetOptionInfoRevertsIfOptionDoesNotExist() public {
         uint256 invalidOptionId = 0;
 

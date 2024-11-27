@@ -43,6 +43,7 @@ contract OptionsMarketplace is ReentrancyGuard {
         bool isCall;
         bool redeemed;
     }
+
     AggregatorV3Interface internal immutable priceFeedInterface;
 
     /*//////////////////////////////////////////////////////////////
@@ -82,12 +83,11 @@ contract OptionsMarketplace is ReentrancyGuard {
      * @param _isCall Whether the option is a call option (true) or put option (false).
      * @return optionId The unique ID of the newly created option.
      */
-    function listOption(
-        uint256 _premium,
-        uint256 _strikePrice,
-        uint256 _expiration,
-        bool _isCall
-    ) public payable returns (uint256) {
+    function listOption(uint256 _premium, uint256 _strikePrice, uint256 _expiration, bool _isCall)
+        public
+        payable
+        returns (uint256)
+    {
         // Checks
         if (msg.value != _strikePrice) {
             revert OptionsMarketplace__AmountSentIsNotStrikePrice();
@@ -161,9 +161,7 @@ contract OptionsMarketplace is ReentrancyGuard {
         option.buyer = msg.sender;
 
         // Interactions
-        (bool optionPurchaseSuccess, ) = option.seller.call{
-            value: option.premium
-        }("");
+        (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
         }
@@ -205,9 +203,7 @@ contract OptionsMarketplace is ReentrancyGuard {
         if (option.isCall) {
             if (currentPrice <= option.strikePrice) {
                 optionValue = 0;
-            } else if (
-                currentPrice - option.strikePrice >= option.strikePrice
-            ) {
+            } else if (currentPrice - option.strikePrice >= option.strikePrice) {
                 optionValue = option.strikePrice;
             } else {
                 optionValue = currentPrice - option.strikePrice;
@@ -223,15 +219,13 @@ contract OptionsMarketplace is ReentrancyGuard {
 
         // Interactions
         // Send option value to the buyer
-        (bool optionRedeemSuccess, ) = msg.sender.call{value: optionValue}("");
+        (bool optionRedeemSuccess,) = msg.sender.call{value: optionValue}("");
         if (!optionRedeemSuccess) {
             revert OptionsMarketplace__OptionRedeemFailed();
         }
         // Send left over value back to the seller
         if (leftOverValue > 0) {
-            (bool leftOverSuccess, ) = option.seller.call{value: leftOverValue}(
-                ""
-            );
+            (bool leftOverSuccess,) = option.seller.call{value: leftOverValue}("");
             if (!leftOverSuccess) {
                 revert OptionsMarketplace__LeftOverTransferFailed();
             }
@@ -244,16 +238,14 @@ contract OptionsMarketplace is ReentrancyGuard {
                             GETTER FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     function getAssetPrice() public view returns (uint256) {
-        (, int256 price, , , ) = priceFeedInterface.latestRoundData();
+        (, int256 price,,,) = priceFeedInterface.latestRoundData();
         if (price < 0) {
             revert OptionsMarketplace__PriceFeedGaveNegativePrice();
         }
         return uint256(price);
     }
 
-    function getOptionInfo(
-        uint256 _optionId
-    ) external view returns (Option memory) {
+    function getOptionInfo(uint256 _optionId) external view returns (Option memory) {
         Option memory option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
