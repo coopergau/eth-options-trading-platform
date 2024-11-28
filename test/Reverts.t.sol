@@ -96,6 +96,69 @@ contract Reverts is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                          unlistOption REVERTS
+    //////////////////////////////////////////////////////////////*/
+    function testUnlistOpitonRevertsIfOptionDoesNotExist() public {
+        uint256 invalidOptionId = 0;
+
+        vm.prank(seller);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        optionsMarketplace.unlistOption(invalidOptionId);
+    }
+
+    function testUnlistOpitonRevertsIfNotTheSeller() public {
+        uint256 optionId = helperListOption();
+
+        vm.prank(buyer);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__YouAreNotTheSellerOfThisOption.selector);
+        optionsMarketplace.unlistOption(optionId);
+    }
+
+    function testUnlistOpitonRevertsIfOptionAlreadyBought() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        vm.prank(seller);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasAlreadyBeenBought.selector);
+        optionsMarketplace.unlistOption(optionId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       refundExpiredOption REVERTS
+    //////////////////////////////////////////////////////////////*/
+    function testRefundExpiredOptionRevertsIfOptionDoesNotExist() public {
+        uint256 invalidOptionId = 0;
+
+        vm.prank(seller);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        optionsMarketplace.refundExpiredOption(invalidOptionId);
+    }
+
+    function testRefundExpiredOptionRevertsIfOptionNotExpired() public {
+        uint256 optionId = helperListOption();
+
+        vm.prank(seller);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionHasNotExpired.selector);
+        optionsMarketplace.refundExpiredOption(optionId);
+    }
+
+    function testRefundExpiredOptionRevertsIfOptionRedeemed() public {
+        uint256 optionId = helperListOption();
+        helperBuyOption(optionId);
+
+        // Redeem Option
+        vm.prank(buyer);
+        optionsMarketplace.redeemOption(optionId);
+
+        // Set the current block's timestamp to after the expiration timestamp
+        vm.warp(expiration + 1);
+
+        vm.prank(seller);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionAlreadyRedeemed.selector);
+        optionsMarketplace.refundExpiredOption(optionId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             buyOption REVERTS
     //////////////////////////////////////////////////////////////*/
     function testbuyOptionRevertsIfOptionDoesNotExist() public {

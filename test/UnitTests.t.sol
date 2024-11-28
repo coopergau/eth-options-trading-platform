@@ -6,6 +6,7 @@ import {Test} from "lib/forge-std/src/Test.sol";
 import {DeployOptionsMarketplace} from "../script/DeployOptionsMarketplace.s.sol";
 import {OptionsMarketplace} from "../src/OptionsMarketplace.sol";
 import {MockV3Aggregator} from "../lib/chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
+import {console} from "lib/forge-std/src/console.sol";
 
 contract UnitTests is Test {
     OptionsMarketplace public optionsMarketplace;
@@ -144,6 +145,101 @@ contract UnitTests is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                           unlistOption TESTS
+    //////////////////////////////////////////////////////////////*/
+    function testUnlistOptionRemovesOptionListing() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Unlist the option
+        vm.prank(SELLER);
+        optionsMarketplace.unlistOption(optionId);
+
+        // Checks that option.seller == address(0)
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
+    }
+
+    function testUnlistOptionUpdatesBalances() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Get initial balances
+        uint256 initialSellerBalance = SELLER.balance;
+        uint256 initialContractBalance = address(optionsMarketplace).balance;
+
+        // Unlist the option
+        vm.prank(SELLER);
+        optionsMarketplace.unlistOption(optionId);
+
+        // Get final balances
+        uint256 finalSellerBalance = SELLER.balance;
+        uint256 finalContractBalance = address(optionsMarketplace).balance;
+
+        assertEq(finalSellerBalance, initialSellerBalance + STRIKE_PRICE);
+        assertEq(finalContractBalance, initialContractBalance - STRIKE_PRICE);
+    }
+
+    function testUnlistOptionEmitsEvent() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        vm.expectEmit();
+        emit OptionsMarketplace.OptionUnlisted(optionId);
+        vm.prank(SELLER);
+        optionsMarketplace.unlistOption(optionId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        refundExpiredOption TESTS
+    //////////////////////////////////////////////////////////////*/
+    function testRefundExpiredOptionRemovesOptionListing() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Set the current block's timestamp to after the expiration timestamp
+        vm.warp(expiration + 1);
+
+        // Refund the option
+        vm.prank(SELLER);
+        optionsMarketplace.refundExpiredOption(optionId);
+
+        // Checks that option.seller == address(0)
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
+    }
+
+    function testRefundExpiredOptionUpdatesBalances() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Get initial balances
+        uint256 initialSellerBalance = SELLER.balance;
+        uint256 initialContractBalance = address(optionsMarketplace).balance;
+
+        // Set the current block's timestamp to after the expiration timestamp
+        vm.warp(expiration + 1);
+
+        // Unlist the option
+        vm.prank(SELLER);
+        optionsMarketplace.refundExpiredOption(optionId);
+
+        // Get final balances
+        uint256 finalSellerBalance = SELLER.balance;
+        uint256 finalContractBalance = address(optionsMarketplace).balance;
+
+        assertEq(finalSellerBalance, initialSellerBalance + STRIKE_PRICE);
+        assertEq(finalContractBalance, initialContractBalance - STRIKE_PRICE);
+    }
+
+    function testRefundExpiredOptionEmitsEvent() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Set the current block's timestamp to after the expiration timestamp
+        vm.warp(expiration + 1);
+
+        vm.expectEmit();
+        emit OptionsMarketplace.ExpiredOptionRefunded(optionId);
+        vm.prank(SELLER);
+        optionsMarketplace.refundExpiredOption(optionId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                              buyOption TESTS
     //////////////////////////////////////////////////////////////*/
     function testBuyOptionUpdatesBuyerField() public {
@@ -155,6 +251,24 @@ contract UnitTests is Test {
         OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
 
         assertEq(option.buyer, address(BUYER));
+    }
+
+    function testBuyOptionUpdatesBalances() public {
+        uint256 optionId = helperListOption(IS_CALL);
+
+        // Get initial balances
+        uint256 initialSellerBalance = SELLER.balance;
+        uint256 initialBuyerBalance = BUYER.balance;
+
+        vm.prank(BUYER);
+        optionsMarketplace.buyOption{value: PREMIUM}(optionId);
+
+        // Get final balances
+        uint256 finalSellerBalance = SELLER.balance;
+        uint256 finalBuyerBalance = BUYER.balance;
+
+        assertEq(finalBuyerBalance, initialBuyerBalance - PREMIUM);
+        assertEq(finalSellerBalance, initialSellerBalance + PREMIUM);
     }
 
     function testBuyOptionEmitsEvent() public {

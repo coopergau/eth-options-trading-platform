@@ -27,7 +27,10 @@ contract OptionsMarketplace is ReentrancyGuard {
     error OptionsMarketplace__OptionPurchaseFailed();
     error OptionsMarketplace__PriceFeedGaveNegativePrice();
     error OptionsMarketplace__OptionHasExpired();
+    error OptionsMarketplace__OptionHasNotExpired();
     error OptionsMarketplace__OptionAlreadyRedeemed();
+    error OptionsMarketplace__OptionUnlistFailed();
+    error OptionsMarketplace__RefundExpiredOptionFailed();
     error OptionsMarketplace__OptionRedeemFailed();
     error OptionsMarketplace__LeftOverTransferFailed();
 
@@ -56,6 +59,8 @@ contract OptionsMarketplace is ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
     event OptionListed(uint256 optionId, Option option);
     event OptionPremiumChanged(uint256 optionId, Option option);
+    event OptionUnlisted(uint256 optionId);
+    event ExpiredOptionRefunded(uint256 optionId);
     event OptionBought(uint256 optionId, Option option);
     event OptionRedeemed(uint256 optionId, Option option);
 
@@ -135,12 +140,76 @@ contract OptionsMarketplace is ReentrancyGuard {
     }
 
     /**
+     * @notice Allows a seller of an option to take down one of their listed options if it has not
+     * already been bought, and get their ether back.
+     * @notice This is only for options that have not expired yet. To refund expired options, users need to call the
+     * refundExpiredOption function.
+     * @param _optionId The unique ID of the option to update.
+     */
+    function unlistOption(uint256 _optionId) public nonReentrant {
+        Option storage option = options[_optionId];
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
+        if (option.seller != msg.sender) {
+            revert OptionsMarketplace__YouAreNotTheSellerOfThisOption();
+        }
+        if (option.buyer != address(0)) {
+            revert OptionsMarketplace__OptionHasAlreadyBeenBought();
+        }
+
+        // Unlisting the option before sending the seller their ether back is the more secure way of organizing the function,
+        // so we need to save the seller's address beforehand to use for the the ether transfer in the next step.
+        address seller = option.seller;
+        option.seller = address(0);
+
+        // Send the seller their ether back
+        (bool optionUnlistSuccess,) = seller.call{value: option.strikePrice}("");
+        if (!optionUnlistSuccess) {
+            revert OptionsMarketplace__OptionUnlistFailed();
+        }
+
+        emit OptionUnlisted(_optionId);
+    }
+
+    /**
+     * @notice Allows a seller to refund the ether they initially sent with their option if the option expired before it was purchsased.
+     * @notice Even though this will probably only be called by the seller of the expired option, there is no reason for that to actually be made a requirement.
+     * @param _optionId The unique ID of the option to update.
+     */
+    function refundExpiredOption(uint256 _optionId) public nonReentrant {
+        Option storage option = options[_optionId];
+        if (option.seller == address(0)) {
+            revert OptionsMarketplace__OptionDoesNotExist();
+        }
+        if (option.expiration >= block.timestamp) {
+            revert OptionsMarketplace__OptionHasNotExpired();
+        }
+        if (option.redeemed == true) {
+            revert OptionsMarketplace__OptionAlreadyRedeemed();
+        }
+
+        // Unlisting the option before sending the seller their ether back is the more secure way of organizing the function,
+        // so we need to save the seller's address beforehand to use for the the ether transfer in the next step.
+        address seller = option.seller;
+        // Set the option seller address to zero to prevent this function from being called more than once for the same option.
+        option.seller = address(0);
+
+        // Send the seller their ether back
+        (bool refundSuccess,) = seller.call{value: option.strikePrice}("");
+        if (!refundSuccess) {
+            revert OptionsMarketplace__RefundExpiredOptionFailed();
+        }
+
+        emit ExpiredOptionRefunded(_optionId);
+    }
+
+    /**
      * @notice Allows a user to buy an option that has been listed.
-     * @dev This function can only be called if the option has not yet been already purchased.
+     * @dev Each option can only be bought once and requires the buyer to send the option premium amount when calling the function.
      * @param _optionId The unique ID of the option to update.
      */
     function buyOption(uint256 _optionId) public payable nonReentrant {
-        // Checks
         Option storage option = options[_optionId];
         if (option.seller == address(0)) {
             revert OptionsMarketplace__OptionDoesNotExist();
@@ -152,10 +221,8 @@ contract OptionsMarketplace is ReentrancyGuard {
             revert OptionsMarketplace__SentIncorrectAmountOfEth();
         }
 
-        // Affects
         option.buyer = msg.sender;
 
-        // Interactions
         (bool optionPurchaseSuccess,) = option.seller.call{value: option.premium}("");
         if (!optionPurchaseSuccess) {
             revert OptionsMarketplace__OptionPurchaseFailed();
