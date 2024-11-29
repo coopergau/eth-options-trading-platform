@@ -45,15 +45,9 @@ contract UnitTests is Test {
     function testListOptionListsWithRightInfo() public {
         uint256 firstOptionId = optionsMarketplace.getNextOptionId();
         vm.prank(SELLER);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            expiration,
-            IS_CALL
-        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
 
-        OptionsMarketplace.Option memory option = optionsMarketplace
-            .getOptionInfo(firstOptionId);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(firstOptionId);
 
         assertEq(option.seller, SELLER);
         assertEq(option.buyer, address(0));
@@ -69,12 +63,7 @@ contract UnitTests is Test {
         uint256 initialContractBalance = address(optionsMarketplace).balance;
 
         vm.prank(SELLER);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            expiration,
-            IS_CALL
-        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
 
         uint256 finalSellerBalance = SELLER.balance;
         uint256 finalContractBalance = address(optionsMarketplace).balance;
@@ -87,12 +76,7 @@ contract UnitTests is Test {
         uint256 initialNextOptionId = optionsMarketplace.getNextOptionId();
 
         vm.prank(SELLER);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            expiration,
-            IS_CALL
-        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
 
         uint256 finalNextOptionId = optionsMarketplace.getNextOptionId();
 
@@ -101,37 +85,27 @@ contract UnitTests is Test {
 
     function testListOptionEmitsEvent() public {
         uint256 firstOptionId = optionsMarketplace.getNextOptionId();
-        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace
-            .Option({
-                seller: SELLER,
-                buyer: address(0),
-                premium: PREMIUM,
-                strikePrice: STRIKE_PRICE,
-                expiration: expiration,
-                isCall: IS_CALL,
-                redeemed: NOT_REDEEMED
-            });
+        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace.Option({
+            seller: SELLER,
+            buyer: address(0),
+            premium: PREMIUM,
+            strikePrice: STRIKE_PRICE,
+            expiration: expiration,
+            isCall: IS_CALL,
+            redeemed: NOT_REDEEMED
+        });
 
         vm.expectEmit();
         emit OptionsMarketplace.OptionListed(firstOptionId, expectedOption);
         vm.prank(SELLER);
-        optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            expiration,
-            IS_CALL
-        );
+        optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, IS_CALL);
     }
 
     // The following tests often use options that have already been listed.
     function helperListOption(bool _isCall) internal returns (uint256) {
         vm.prank(SELLER);
-        uint256 optionId = optionsMarketplace.listOption{value: STRIKE_PRICE}(
-            PREMIUM,
-            STRIKE_PRICE,
-            expiration,
-            _isCall
-        );
+        uint256 optionId =
+            optionsMarketplace.listOption{value: STRIKE_PRICE}(PREMIUM, STRIKE_PRICE, expiration, _isCall);
         return optionId;
     }
 
@@ -145,8 +119,7 @@ contract UnitTests is Test {
         vm.prank(SELLER);
         optionsMarketplace.changePremium(optionId, newPremium);
 
-        OptionsMarketplace.Option memory option = optionsMarketplace
-            .getOptionInfo(optionId);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
 
         assertEq(option.premium, newPremium);
     }
@@ -154,16 +127,15 @@ contract UnitTests is Test {
     function testChangePremiumEmitsEvent() public {
         uint256 newPremium = PREMIUM + 1 ether;
         uint256 optionId = helperListOption(IS_CALL);
-        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace
-            .Option({
-                seller: SELLER,
-                buyer: address(0),
-                premium: newPremium,
-                strikePrice: STRIKE_PRICE,
-                expiration: expiration,
-                isCall: IS_CALL,
-                redeemed: NOT_REDEEMED
-            });
+        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace.Option({
+            seller: SELLER,
+            buyer: address(0),
+            premium: newPremium,
+            strikePrice: STRIKE_PRICE,
+            expiration: expiration,
+            isCall: IS_CALL,
+            redeemed: NOT_REDEEMED
+        });
 
         vm.expectEmit();
         emit OptionsMarketplace.OptionPremiumChanged(optionId, expectedOption);
@@ -182,11 +154,8 @@ contract UnitTests is Test {
         optionsMarketplace.unlistOption(optionId);
 
         // Checks that option.seller == address(0)
-        vm.expectRevert(
-            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
-        );
-        OptionsMarketplace.Option memory option = optionsMarketplace
-            .getOptionInfo(optionId);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
     }
 
     function testUnlistOptionUpdatesBalances() public {
@@ -231,11 +200,8 @@ contract UnitTests is Test {
         optionsMarketplace.refundExpiredOption(optionId);
 
         // Checks that option.seller == address(0)
-        vm.expectRevert(
-            OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector
-        );
-        OptionsMarketplace.Option memory option = optionsMarketplace
-            .getOptionInfo(optionId);
+        vm.expectRevert(OptionsMarketplace.OptionsMarketplace__OptionDoesNotExist.selector);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
     }
 
     function testRefundExpiredOptionUpdatesBalances() public {
@@ -281,8 +247,7 @@ contract UnitTests is Test {
         vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
 
-        OptionsMarketplace.Option memory option = optionsMarketplace
-            .getOptionInfo(optionId);
+        OptionsMarketplace.Option memory option = optionsMarketplace.getOptionInfo(optionId);
 
         assertEq(option.buyer, address(BUYER));
     }
@@ -307,16 +272,15 @@ contract UnitTests is Test {
 
     function testBuyOptionEmitsEvent() public {
         uint256 optionId = helperListOption(IS_CALL);
-        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace
-            .Option({
-                seller: SELLER,
-                buyer: BUYER,
-                premium: PREMIUM,
-                strikePrice: STRIKE_PRICE,
-                expiration: expiration,
-                isCall: IS_CALL,
-                redeemed: NOT_REDEEMED
-            });
+        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace.Option({
+            seller: SELLER,
+            buyer: BUYER,
+            premium: PREMIUM,
+            strikePrice: STRIKE_PRICE,
+            expiration: expiration,
+            isCall: IS_CALL,
+            redeemed: NOT_REDEEMED
+        });
 
         vm.expectEmit();
         emit OptionsMarketplace.OptionBought(optionId, expectedOption);
@@ -408,16 +372,15 @@ contract UnitTests is Test {
         uint256 optionId = helperListOption(IS_CALL);
         vm.prank(BUYER);
         optionsMarketplace.buyOption{value: PREMIUM}(optionId);
-        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace
-            .Option({
-                seller: SELLER,
-                buyer: BUYER,
-                premium: PREMIUM,
-                strikePrice: STRIKE_PRICE,
-                expiration: expiration,
-                isCall: IS_CALL,
-                redeemed: REDEEMED
-            });
+        OptionsMarketplace.Option memory expectedOption = OptionsMarketplace.Option({
+            seller: SELLER,
+            buyer: BUYER,
+            premium: PREMIUM,
+            strikePrice: STRIKE_PRICE,
+            expiration: expiration,
+            isCall: IS_CALL,
+            redeemed: REDEEMED
+        });
 
         vm.expectEmit();
         emit OptionsMarketplace.OptionRedeemed(optionId, expectedOption);
@@ -436,9 +399,7 @@ contract UnitTests is Test {
             return;
         }
 
-        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(
-            optionsMarketplace.getPriceFeedAddress()
-        );
+        MockV3Aggregator mockV3Aggregator = MockV3Aggregator(optionsMarketplace.getPriceFeedAddress());
         int256 newAssetPrice = 20e18;
         mockV3Aggregator.updateAnswer(newAssetPrice);
 

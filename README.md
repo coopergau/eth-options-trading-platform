@@ -17,9 +17,11 @@ When users list a call option there is no way for them to send enough funds to e
     - To clone the repository.
 
 ## Installation
+Follow these steps to set up the project locally:
 ```bash
 # Clone the repository
 git clone https://github.com/coopergau/eth-options-trading-platform
+cd eth-options-trading-platform
 
 # Install dependencies
 forge install
@@ -27,3 +29,42 @@ forge install
 # Compile the contracts
 forge build
 ```
+
+## Testing
+Follow these steps to run the smart contract tests locally:
+```bash
+# Run all tests
+forge test
+
+# Run specific tests
+forge test --match-test testName
+```
+
+The helperConfig.s.sol script enables seamless testing on forked networks, specifically the Sepolia testnet and Ethereum mainnet. To test on either network, you'll need a valid RPC URL. You can obtain one from [Alchemy](https://www.alchemy.com/) or any other RPC provider.
+```bash
+# Simulate running the tests on the Sepolia Testnet
+forge test --fork-url <Sepolia_RPC_URL>
+
+# Simulate running the tests on the Ethereum Mainnet
+forge test --fork-url <Ethereum_RPC_URL>
+```
+
+## Deployment
+This project is meant to demonstrate an understanding and ability of smart contract development and should not be deployed to a mainnet but these are the steps to how that would be done:
+```bash
+# Deploy to a local anvil network
+anvil
+forge script script/DeployOptionsMarketplace.s.sol
+
+# Deploy to specific network 
+forge script script/DeployOptionsMarketplace.s.sol --rpc-url <Actual_RPC_URL> --private-key <Your_Private_Key>
+```
+
+## Project Structure
+The main folders of interest are:
+- src/: The smart contract that acts as a decentralized opions market place
+- script/: The deploy script and helper config script to handle deploying to different networks.
+- test/: The smart contract tests. Organized into three sections:
+    - Unit tests: Test the smart contract functions as intended in valid situations.
+    - Revert tests: Test the smart contract recognizes invalid situations and reverts when expected.
+    - Fuzz tests: Test the options redeeming function works as intended over a random sample of asset prices.
