@@ -61,12 +61,12 @@ forge script script/DeployOptionsMarketplace.s.sol --rpc-url <Network_RPC_URL> -
 ```
 
 ## Project Structure
-The main folders of interest are:
-- src/:
+The main folders of interest and their contents are:
+- src/
     - The smart contract that acts as a decentralized opions market place
-- script/:
+- script/
     - The deploy script and helper config script to handle deploying to different networks.
-- test/:
+- test/
     - The smart contract tests. Organized into three sections:
         - Unit tests: Test the smart contract functions as intended in valid situations.
         - Revert tests: Test the smart contract recognizes invalid situations and reverts when expected.
