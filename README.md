@@ -50,21 +50,24 @@ forge test --fork-url <Ethereum_RPC_URL>
 ```
 
 ## Deployment
-This project is meant to demonstrate an understanding and ability of smart contract development and should not be deployed to a mainnet but these are the steps to how that would be done:
+This project is meant to demonstrate an understanding and ability of smart contract development and should not be deployed to a mainnet but these are the steps of how that would be done:
 ```bash
 # Deploy to a local anvil network
 anvil
 forge script script/DeployOptionsMarketplace.s.sol
 
 # Deploy to specific network 
-forge script script/DeployOptionsMarketplace.s.sol --rpc-url <Actual_RPC_URL> --private-key <Your_Private_Key>
+forge script script/DeployOptionsMarketplace.s.sol --rpc-url <Network_RPC_URL> --private-key <Your_Private_Key>
 ```
 
 ## Project Structure
 The main folders of interest are:
-- src/: The smart contract that acts as a decentralized opions market place
-- script/: The deploy script and helper config script to handle deploying to different networks.
-- test/: The smart contract tests. Organized into three sections:
-    - Unit tests: Test the smart contract functions as intended in valid situations.
-    - Revert tests: Test the smart contract recognizes invalid situations and reverts when expected.
-    - Fuzz tests: Test the options redeeming function works as intended over a random sample of asset prices.
+- src/:
+    - The smart contract that acts as a decentralized opions market place
+- script/:
+    - The deploy script and helper config script to handle deploying to different networks.
+- test/:
+    - The smart contract tests. Organized into three sections:
+        - Unit tests: Test the smart contract functions as intended in valid situations.
+        - Revert tests: Test the smart contract recognizes invalid situations and reverts when expected.
+        - Fuzz tests: Test the options redeeming function works as intended over a random sample of asset prices.
